@@ -24,6 +24,7 @@
 #include <ucs/stats/stats_fwd.h>
 #include <ucs/sys/compiler_def.h>
 #include <ucs/sys/topo/base/topo.h>
+#include "snoop_ucx.h"
 
 #include <sys/socket.h>
 #include <stdio.h>
@@ -2912,6 +2913,12 @@ UCT_INLINE_API ucs_status_t uct_ep_put_zcopy(uct_ep_h ep,
                                              uint64_t remote_addr, uct_rkey_t rkey,
                                              uct_completion_t *comp)
 {
+    int maxsize, i;
+    maxsize = 0;
+    for(i = 0; i < iovcnt; i++){
+        maxsize += iov[i].count * iov[i].length;
+    }
+    snoop_uct_send_f(ep, maxsize);
     return ep->iface->ops.ep_put_zcopy(ep, iov, iovcnt, remote_addr, rkey, comp);
 }
 
@@ -3083,6 +3090,12 @@ UCT_INLINE_API ucs_status_t uct_ep_am_zcopy(uct_ep_h ep, uint8_t id,
                                             unsigned flags,
                                             uct_completion_t *comp)
 {
+    int maxsize, i;
+    maxsize = 0;
+    for(i = 0; i < iovcnt; i++){
+        maxsize += iov[i].count * iov[i].length;
+    }
+    snoop_uct_send_f(ep, maxsize);
     return ep->iface->ops.ep_am_zcopy(ep, id, header, header_length, iov, iovcnt,
                                       flags, comp);
 }
