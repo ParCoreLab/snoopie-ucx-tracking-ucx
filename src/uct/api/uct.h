@@ -2913,12 +2913,7 @@ UCT_INLINE_API ucs_status_t uct_ep_put_zcopy(uct_ep_h ep,
                                              uint64_t remote_addr, uct_rkey_t rkey,
                                              uct_completion_t *comp)
 {
-    int maxsize, i;
-    maxsize = 0;
-    for(i = 0; i < iovcnt; i++){
-        maxsize += iov[i].count * iov[i].length;
-    }
-    snoop_uct_send_f(ep, maxsize);
+    SNOOP_LOG_ZCOPY;
     return ep->iface->ops.ep_put_zcopy(ep, iov, iovcnt, remote_addr, rkey, comp);
 }
 
@@ -2982,6 +2977,7 @@ UCT_INLINE_API ucs_status_t uct_ep_get_zcopy(uct_ep_h ep,
                                              uint64_t remote_addr, uct_rkey_t rkey,
                                              uct_completion_t *comp)
 {
+    SNOOP_LOG_ZCOPY;
     return ep->iface->ops.ep_get_zcopy(ep, iov, iovcnt, remote_addr, rkey, comp);
 }
 
@@ -3090,12 +3086,7 @@ UCT_INLINE_API ucs_status_t uct_ep_am_zcopy(uct_ep_h ep, uint8_t id,
                                             unsigned flags,
                                             uct_completion_t *comp)
 {
-    int maxsize, i;
-    maxsize = 0;
-    for(i = 0; i < iovcnt; i++){
-        maxsize += iov[i].count * iov[i].length;
-    }
-    snoop_uct_send_f(ep, maxsize);
+    SNOOP_LOG_ZCOPY;
     return ep->iface->ops.ep_am_zcopy(ep, id, header, header_length, iov, iovcnt,
                                       flags, comp);
 }
@@ -3381,6 +3372,7 @@ UCT_INLINE_API ucs_status_t uct_ep_tag_eager_zcopy(uct_ep_h ep, uct_tag_t tag,
                                                    unsigned flags,
                                                    uct_completion_t *comp)
 {
+    SNOOP_LOG_ZCOPY;
     return ep->iface->ops.ep_tag_eager_zcopy(ep, tag, imm, iov, iovcnt, flags,
                                              comp);
 }
@@ -3430,6 +3422,7 @@ UCT_INLINE_API ucs_status_ptr_t uct_ep_tag_rndv_zcopy(uct_ep_h ep, uct_tag_t tag
                                                       unsigned flags,
                                                       uct_completion_t *comp)
 {
+    SNOOP_LOG_ZCOPY;
     return ep->iface->ops.ep_tag_rndv_zcopy(ep, tag, header, header_length,
                                             iov, iovcnt, flags, comp);
 }
