@@ -35,6 +35,11 @@ static inline void *ucs_mpool_get_inline(ucs_mpool_t *mp)
     return obj;
 }
 
+#ifndef ENABLE_DEBUG_DATA
+#define ENABLE_DEBUG_DATA 1
+#endif
+
+
 static inline void
 ucs_mpool_add_to_freelist(ucs_mpool_t *mp, ucs_mpool_elem_t *elem)
 {
