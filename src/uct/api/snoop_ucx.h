@@ -30,13 +30,13 @@ typedef struct snoop_uct_ep_addr {
 
 typedef struct snoop_uct_ep {
   char cm_name[SNOOP_CM_NAME_SIZE];
-  snoop_uct_ep_addr_t current_addr;
-  snoop_uct_ep_addr_t remote_addr;
+
   ucx_ptr ep_ptr;
   ucx_ptr iface_ptr;
 
+  snoop_uct_ep_addr_t current_addr;
   snoop_uct_ep_addr_t current_dev_addr;
-  snoop_uct_ep_addr_t remote_dev_addr;
+
   /*
   0x0: no name?
   0x1: name in cm_name.
@@ -44,6 +44,17 @@ typedef struct snoop_uct_ep {
   */
   char flags;
 } snoop_uct_ep_t;
+
+typedef struct snoop_uct_connection {
+  ucx_ptr ep_ptr;
+  snoop_uct_ep_addr_t current_addr;
+  snoop_uct_ep_addr_t remote_addr;
+
+  snoop_uct_ep_addr_t current_dev_addr;
+  snoop_uct_ep_addr_t remote_dev_addr;
+
+  struct timespec time;
+} snoop_uct_connection_t;
 
 typedef struct snoop_uct_iface_tl_resources {
   char device_name[SNOOP_TL_DEV_NAME_SIZE];
@@ -82,8 +93,10 @@ void snoop_uct_ep_connect(void *ep, const char *sender_addr,
                           const char *sender_dev_addr,
                           const char *remote_dev_addr, size_t dev_addr_len);
 
-#define snoop_uct_send_f(ep, size) snoop_uct_send(ep, size, __func__)
+#define snoop_uct_send_f(ep, size) snoop_uct_send_proxy(ep, size, __func__)
 void snoop_uct_send(void *ep, size_t size, const char *func_name);
+
+void snoop_uct_send_proxy(void *ep, size_t size, const char *func_name);
 
 #define zerostruct(p) memset(&p, 0, sizeof(p))
 

@@ -1,0 +1,2 @@
+CompileFlags:
+  Add: [-I/Users/emrgncr/drepos/ucx-snoop/src, -I/Users/emrgncr/drepos/built-ucx/include]
