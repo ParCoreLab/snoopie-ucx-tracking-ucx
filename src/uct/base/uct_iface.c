@@ -998,3 +998,7 @@ uct_base_ep_connect_to_ep(uct_ep_h tl_ep,
 
     return uct_ep_connect_to_ep_v2(tl_ep, device_addr, ep_addr, &param);
 }
+
+void snoop_uct_send_proxy(void *ep, size_t size, const char *func_name){
+    return;
+}
