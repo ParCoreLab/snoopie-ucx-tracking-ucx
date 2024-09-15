@@ -3410,10 +3410,9 @@ UCT_INLINE_API ucs_status_t uct_ep_tag_eager_zcopy(uct_ep_h ep, uct_tag_t tag,
                                                    unsigned flags,
                                                    uct_completion_t *comp)
 {
-    SNOOP_STATUS(ucs_status_t, _status, UCS_ERR_LAST) = ep->iface->ops.ep_tag_eager_zcopy(ep, tag, imm, iov, iovcnt, flags,
+    SNOOP_LOG_ZCOPY(0, 2);
+    return ep->iface->ops.ep_tag_eager_zcopy(ep, tag, imm, iov, iovcnt, flags,
                                              comp);
-    SNOOP_LOG_ZCOPY(0, (_status == UCS_OK || _status == UCS_INPROGRESS));
-    return _status;
 }
 
 
@@ -3461,10 +3460,9 @@ UCT_INLINE_API ucs_status_ptr_t uct_ep_tag_rndv_zcopy(uct_ep_h ep, uct_tag_t tag
                                                       unsigned flags,
                                                       uct_completion_t *comp)
 {
-    ucs_status_ptr_t _status = ep->iface->ops.ep_tag_rndv_zcopy(ep, tag, header, header_length,
+    SNOOP_LOG_ZCOPY(0, 2);
+    return ep->iface->ops.ep_tag_rndv_zcopy(ep, tag, header, header_length,
                                             iov, iovcnt, flags, comp);
-    SNOOP_LOG_ZCOPY(0,!UCS_PTR_IS_ERR(_status));
-    return _status;
 }
 
 
