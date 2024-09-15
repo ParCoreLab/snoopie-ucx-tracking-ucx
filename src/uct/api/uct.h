@@ -2864,8 +2864,9 @@ UCT_INLINE_API void uct_iface_release_desc(void *desc)
 UCT_INLINE_API ucs_status_t uct_ep_put_short(uct_ep_h ep, const void *buffer, unsigned length,
                                              uint64_t remote_addr, uct_rkey_t rkey)
 {
-    snoop_uct_send_f(ep, length, rkey);
-    return ep->iface->ops.ep_put_short(ep, buffer, length, remote_addr, rkey);
+    ucs_status_t _status = ep->iface->ops.ep_put_short(ep, buffer, length, remote_addr, rkey);
+    snoop_uct_send_f(ep, length, rkey, (_status == UCS_OK || _status == UCS_INPROGRESS));
+    return _status;
 }
 
 
@@ -2879,7 +2880,7 @@ UCT_INLINE_API ssize_t uct_ep_put_bcopy(uct_ep_h ep, uct_pack_callback_t pack_cb
 {
     ssize_t send_size;
     send_size = ep->iface->ops.ep_put_bcopy(ep, pack_cb, arg, remote_addr, rkey);
-    snoop_uct_send_f(ep, send_size, rkey);
+    snoop_uct_send_f(ep, send_size, rkey, (send_size > 0 && send_size != ((ssize_t) -1)));
     return send_size;
 }
 
@@ -2918,8 +2919,9 @@ UCT_INLINE_API ucs_status_t uct_ep_put_zcopy(uct_ep_h ep,
                                              uint64_t remote_addr, uct_rkey_t rkey,
                                              uct_completion_t *comp)
 {
-    SNOOP_LOG_ZCOPY(rkey);
-    return ep->iface->ops.ep_put_zcopy(ep, iov, iovcnt, remote_addr, rkey, comp);
+    ucs_status_t _status = ep->iface->ops.ep_put_zcopy(ep, iov, iovcnt, remote_addr, rkey, comp);
+    SNOOP_LOG_ZCOPY(rkey,(_status == UCS_OK || _status == UCS_INPROGRESS) );
+    return _status;
 }
 
 
@@ -2930,8 +2932,9 @@ UCT_INLINE_API ucs_status_t uct_ep_put_zcopy(uct_ep_h ep,
 UCT_INLINE_API ucs_status_t uct_ep_get_short(uct_ep_h ep, void *buffer, unsigned length,
                                              uint64_t remote_addr, uct_rkey_t rkey)
 {
-    snoop_uct_send_f(ep, length, rkey);
-    return ep->iface->ops.ep_get_short(ep, buffer, length, remote_addr, rkey);
+    ucs_status_t _status = ep->iface->ops.ep_get_short(ep, buffer, length, remote_addr, rkey);
+    snoop_uct_send_f(ep, length, rkey, (_status == UCS_OK || _status == UCS_INPROGRESS));
+    return _status;
 }
 
 
@@ -2944,9 +2947,10 @@ UCT_INLINE_API ucs_status_t uct_ep_get_bcopy(uct_ep_h ep, uct_unpack_callback_t 
                                              uint64_t remote_addr, uct_rkey_t rkey,
                                              uct_completion_t *comp)
 {
-    snoop_uct_send_f(ep, length, rkey);
-    return ep->iface->ops.ep_get_bcopy(ep, unpack_cb, arg, length, remote_addr,
+    ucs_status_t _status = ep->iface->ops.ep_get_bcopy(ep, unpack_cb, arg, length, remote_addr,
                                        rkey, comp);
+    snoop_uct_send_f(ep, length, rkey, (_status == UCS_OK || _status == UCS_INPROGRESS));
+    return _status;
 }
 
 
@@ -2984,8 +2988,9 @@ UCT_INLINE_API ucs_status_t uct_ep_get_zcopy(uct_ep_h ep,
                                              uint64_t remote_addr, uct_rkey_t rkey,
                                              uct_completion_t *comp)
 {
-    SNOOP_LOG_ZCOPY(rkey);
-    return ep->iface->ops.ep_get_zcopy(ep, iov, iovcnt, remote_addr, rkey, comp);
+    ucs_status_t _status = ep->iface->ops.ep_get_zcopy(ep, iov, iovcnt, remote_addr, rkey, comp);
+    SNOOP_LOG_ZCOPY(rkey, (_status == UCS_OK || _status == UCS_INPROGRESS));
+    return _status;
 }
 
 
@@ -2996,8 +3001,9 @@ UCT_INLINE_API ucs_status_t uct_ep_get_zcopy(uct_ep_h ep,
 UCT_INLINE_API ucs_status_t uct_ep_am_short(uct_ep_h ep, uint8_t id, uint64_t header,
                                             const void *payload, unsigned length)
 {
-    snoop_uct_send_f(ep, length, 0);
-    return ep->iface->ops.ep_am_short(ep, id, header, payload, length);
+    ucs_status_t _status = ep->iface->ops.ep_am_short(ep, id, header, payload, length);
+    snoop_uct_send_f(ep, length, 0, (_status == UCS_OK || _status == UCS_INPROGRESS));
+    return _status;
 }
 
 
@@ -3034,8 +3040,9 @@ UCT_INLINE_API ucs_status_t uct_ep_am_short(uct_ep_h ep, uint8_t id, uint64_t he
 UCT_INLINE_API ucs_status_t uct_ep_am_short_iov(uct_ep_h ep, uint8_t id,
                                                 const uct_iov_t *iov, size_t iovcnt)
 {
-    SNOOP_LOG_ZCOPY(0);
-    return ep->iface->ops.ep_am_short_iov(ep, id, iov, iovcnt);
+    ucs_status_t _status = ep->iface->ops.ep_am_short_iov(ep, id, iov, iovcnt);
+    SNOOP_LOG_ZCOPY(0, (_status == UCS_OK || _status == UCS_INPROGRESS));
+    return _status;
 }
 
 
@@ -3049,7 +3056,8 @@ UCT_INLINE_API ssize_t uct_ep_am_bcopy(uct_ep_h ep, uint8_t id,
 {
     ssize_t send_size;
     send_size = ep->iface->ops.ep_am_bcopy(ep, id, pack_cb, arg, flags);
-    snoop_uct_send_f(ep, send_size, 0);
+    snoop_uct_send_f(ep, send_size, 0, 
+        (send_size > 0 && send_size != ((ssize_t) -1)));
     return send_size;
 }
 
@@ -3098,9 +3106,10 @@ UCT_INLINE_API ucs_status_t uct_ep_am_zcopy(uct_ep_h ep, uint8_t id,
                                             unsigned flags,
                                             uct_completion_t *comp)
 {
-    SNOOP_LOG_ZCOPY(0);
-    return ep->iface->ops.ep_am_zcopy(ep, id, header, header_length, iov, iovcnt,
+    ucs_status_t _status = ep->iface->ops.ep_am_zcopy(ep, id, header, header_length, iov, iovcnt,
                                       flags, comp);
+    SNOOP_LOG_ZCOPY(0, (_status == UCS_OK || _status == UCS_INPROGRESS));
+    return _status;
 }
 
 /**
@@ -3111,7 +3120,9 @@ UCT_INLINE_API ucs_status_t uct_ep_atomic_cswap64(uct_ep_h ep, uint64_t compare,
                                                   uint64_t remote_addr, uct_rkey_t rkey,
                                                   uint64_t *result, uct_completion_t *comp)
 {
-    return ep->iface->ops.ep_atomic_cswap64(ep, compare, swap, remote_addr, rkey, result, comp);
+    ucs_status_t _status = ep->iface->ops.ep_atomic_cswap64(ep, compare, swap, remote_addr, rkey, result, comp);
+    snoop_uct_send_f(ep, 64, rkey, (_status == UCS_OK || _status == UCS_INPROGRESS));
+    return _status;
 }
 
 
@@ -3123,7 +3134,9 @@ UCT_INLINE_API ucs_status_t uct_ep_atomic_cswap32(uct_ep_h ep, uint32_t compare,
                                                   uint64_t remote_addr, uct_rkey_t rkey,
                                                   uint32_t *result, uct_completion_t *comp)
 {
-    return ep->iface->ops.ep_atomic_cswap32(ep, compare, swap, remote_addr, rkey, result, comp);
+    ucs_status_t _status = ep->iface->ops.ep_atomic_cswap32(ep, compare, swap, remote_addr, rkey, result, comp);
+    snoop_uct_send_f(ep, 32, rkey, (_status == UCS_OK || _status == UCS_INPROGRESS));
+    return _status;
 }
 
 
@@ -3135,7 +3148,9 @@ UCT_INLINE_API ucs_status_t uct_ep_atomic32_post(uct_ep_h ep, uct_atomic_op_t op
                                                  uint32_t value, uint64_t remote_addr,
                                                  uct_rkey_t rkey)
 {
-    return ep->iface->ops.ep_atomic32_post(ep, opcode, value, remote_addr, rkey);
+    ucs_status_t _status = ep->iface->ops.ep_atomic32_post(ep, opcode, value, remote_addr, rkey);
+    snoop_uct_send_f(ep, 32, rkey, (_status == UCS_OK || _status == UCS_INPROGRESS));
+    return _status;
 }
 
 
@@ -3147,7 +3162,9 @@ UCT_INLINE_API ucs_status_t uct_ep_atomic64_post(uct_ep_h ep, uct_atomic_op_t op
                                                  uint64_t value, uint64_t remote_addr,
                                                  uct_rkey_t rkey)
 {
-    return ep->iface->ops.ep_atomic64_post(ep, opcode, value, remote_addr, rkey);
+    ucs_status_t _status = ep->iface->ops.ep_atomic64_post(ep, opcode, value, remote_addr, rkey);
+    snoop_uct_send_f(ep, 64, rkey, (_status == UCS_OK || _status == UCS_INPROGRESS));
+    return _status;
 }
 
 
@@ -3160,8 +3177,10 @@ UCT_INLINE_API ucs_status_t uct_ep_atomic32_fetch(uct_ep_h ep, uct_atomic_op_t o
                                                   uint64_t remote_addr, uct_rkey_t rkey,
                                                   uct_completion_t *comp)
 {
-    return ep->iface->ops.ep_atomic32_fetch(ep, opcode, value, result,
+    ucs_status_t _status = ep->iface->ops.ep_atomic32_fetch(ep, opcode, value, result,
                                             remote_addr, rkey, comp);
+    snoop_uct_send_f(ep, 32, rkey, (_status == UCS_OK || _status == UCS_INPROGRESS));
+    return _status;
 }
 
 
@@ -3174,8 +3193,10 @@ UCT_INLINE_API ucs_status_t uct_ep_atomic64_fetch(uct_ep_h ep, uct_atomic_op_t o
                                                   uint64_t remote_addr, uct_rkey_t rkey,
                                                   uct_completion_t *comp)
 {
-    return ep->iface->ops.ep_atomic64_fetch(ep, opcode, value, result,
+    ucs_status_t _status = ep->iface->ops.ep_atomic64_fetch(ep, opcode, value, result,
                                             remote_addr, rkey, comp);
+    snoop_uct_send_f(ep, 64, rkey, (_status == UCS_OK || _status == UCS_INPROGRESS));
+    return _status;
 }
 
 
@@ -3304,8 +3325,9 @@ UCT_INLINE_API ucs_status_t uct_ep_fence(uct_ep_h ep, unsigned flags)
 UCT_INLINE_API ucs_status_t uct_ep_tag_eager_short(uct_ep_h ep, uct_tag_t tag,
                                                    const void *data, size_t length)
 {
-    snoop_uct_send_f(ep, length, 0);
-    return ep->iface->ops.ep_tag_eager_short(ep, tag, data, length);
+    ucs_status_t _status = ep->iface->ops.ep_tag_eager_short(ep, tag, data, length);
+    snoop_uct_send_f(ep, length, 0, (_status == UCS_OK || _status == UCS_INPROGRESS));
+    return _status;
 }
 
 
@@ -3339,7 +3361,7 @@ UCT_INLINE_API ssize_t uct_ep_tag_eager_bcopy(uct_ep_h ep, uct_tag_t tag,
 {
     ssize_t send_size;
     send_size = ep->iface->ops.ep_tag_eager_bcopy(ep, tag, imm, pack_cb, arg, flags);
-    snoop_uct_send_f(ep, send_size, 0);
+    snoop_uct_send_f(ep, send_size, 0, (send_size > 0 && send_size != ((ssize_t) -1)));
     return send_size;
 }
 
@@ -3388,9 +3410,10 @@ UCT_INLINE_API ucs_status_t uct_ep_tag_eager_zcopy(uct_ep_h ep, uct_tag_t tag,
                                                    unsigned flags,
                                                    uct_completion_t *comp)
 {
-    SNOOP_LOG_ZCOPY(0);
-    return ep->iface->ops.ep_tag_eager_zcopy(ep, tag, imm, iov, iovcnt, flags,
+    ucs_status_t _status = ep->iface->ops.ep_tag_eager_zcopy(ep, tag, imm, iov, iovcnt, flags,
                                              comp);
+    SNOOP_LOG_ZCOPY(0, (_status == UCS_OK || _status == UCS_INPROGRESS));
+    return _status;
 }
 
 
@@ -3438,9 +3461,10 @@ UCT_INLINE_API ucs_status_ptr_t uct_ep_tag_rndv_zcopy(uct_ep_h ep, uct_tag_t tag
                                                       unsigned flags,
                                                       uct_completion_t *comp)
 {
-    SNOOP_LOG_ZCOPY(0);
-    return ep->iface->ops.ep_tag_rndv_zcopy(ep, tag, header, header_length,
+    ucs_status_ptr_t _status = ep->iface->ops.ep_tag_rndv_zcopy(ep, tag, header, header_length,
                                             iov, iovcnt, flags, comp);
+    SNOOP_LOG_ZCOPY(0,!UCS_PTR_IS_ERR(_status));
+    return _status;
 }
 
 

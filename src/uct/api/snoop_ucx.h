@@ -9,6 +9,7 @@ extern "C" {
 
 typedef uintptr_t ucx_ptr;
 typedef uintptr_t unpacked_rkey;
+typedef uint8_t boolean;
 
 #define SNOOP_MD_COMPONENT_NAME_SIZE 16
 #define SNOOP_TL_NAME_SIZE 16
@@ -16,13 +17,13 @@ typedef uintptr_t unpacked_rkey;
 #define SNOOP_CM_NAME_SIZE 16
 #define SNOOP_UCT_FUNC_NAME 32
 
-#define SNOOP_LOG_ZCOPY(rkey)                                                  \
+#define SNOOP_LOG_ZCOPY(rkey, is_success)                                      \
   int maxsize, i;                                                              \
   maxsize = 0;                                                                 \
   for (i = 0; i < iovcnt; i++) {                                               \
     maxsize += iov[i].count * iov[i].length;                                   \
   }                                                                            \
-  snoop_uct_send_f(ep, maxsize, rkey);
+  snoop_uct_send_f(ep, maxsize, rkey, is_success);
 
 typedef struct snoop_uct_ep_addr {
   size_t addr_size;
@@ -91,6 +92,7 @@ typedef struct snoop_uct_comm {
   char send_func_name[SNOOP_UCT_FUNC_NAME];
   struct timespec time;
   size_t comm_size;
+  boolean is_success;
 } snoop_uct_comm_t;
 
 void snoop_uct_iface_open(void *iface, void *md, size_t md_rkey_size,
@@ -105,16 +107,19 @@ void snoop_uct_ep_connect(void *ep, const char *sender_addr,
                           const char *sender_dev_addr,
                           const char *remote_dev_addr, size_t dev_addr_len);
 
-#define snoop_uct_send_f(ep, size, rkey)                                       \
-  snoop_uct_send_proxy(ep, size, rkey, __func__)
-void snoop_uct_send(void *ep, size_t size, unpacked_rkey rkey,
-                    const char *func_name);
+#define snoop_uct_send_f(ep, size, rkey, is_success)                           \
+  snoop_uct_send_proxy(ep, size, rkey, is_success, __func__)
+
+void snoop_uct_send(void *ep, void *iface, size_t size, unpacked_rkey rkey,
+                    boolean is_success, const char *func_name);
 void snoop_uct_send_proxy(void *ep, size_t size, unpacked_rkey rkey,
-                          const char *func_name);
+                          boolean is_success, const char *func_name);
 
 // TODO change to pointer for performance
 void snoop_uct_pack_rkey(snoop_uct_rkey_t rkey);
 void snoop_uct_unpack_rkey(const void *rkey_ptr, unpacked_rkey unpacked);
+
+void printCharHex(const char *str, size_t maxLength);
 
 #define zerostruct(p) memset(&p, 0, sizeof(p))
 
