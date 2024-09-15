@@ -18,12 +18,18 @@ typedef uint8_t boolean;
 #define SNOOP_UCT_FUNC_NAME 32
 
 #define SNOOP_LOG_ZCOPY(rkey, is_success)                                      \
-  int maxsize, i;                                                              \
-  maxsize = 0;                                                                 \
-  for (i = 0; i < iovcnt; i++) {                                               \
-    maxsize += iov[i].count * iov[i].length;                                   \
-  }                                                                            \
-  snoop_uct_send_f(ep, maxsize, rkey, is_success);
+  do {                                                                         \
+    int maxsize, i;                                                            \
+    maxsize = 0;                                                               \
+    for (i = 0; i < iovcnt; i++) {                                             \
+      maxsize += iov[i].count * iov[i].length;                                 \
+    }                                                                          \
+    snoop_uct_send_f(ep, maxsize, rkey, is_success);                           \
+  } while (0)
+
+#define SNOOP_STATUS(type, varname, init)                                      \
+  type varname = init;                                                         \
+  varname
 
 typedef struct snoop_uct_ep_addr {
   size_t addr_size;
