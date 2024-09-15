@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 typedef uintptr_t ucx_ptr;
+typedef uintptr_t unpacked_rkey;
 
 #define SNOOP_MD_COMPONENT_NAME_SIZE 16
 #define SNOOP_TL_NAME_SIZE 16
@@ -15,13 +16,13 @@ typedef uintptr_t ucx_ptr;
 #define SNOOP_CM_NAME_SIZE 16
 #define SNOOP_UCT_FUNC_NAME 32
 
-#define SNOOP_LOG_ZCOPY                                                        \
+#define SNOOP_LOG_ZCOPY(rkey)                                                  \
   int maxsize, i;                                                              \
   maxsize = 0;                                                                 \
   for (i = 0; i < iovcnt; i++) {                                               \
     maxsize += iov[i].count * iov[i].length;                                   \
   }                                                                            \
-  snoop_uct_send_f(ep, maxsize);
+  snoop_uct_send_f(ep, maxsize, rkey);
 
 typedef struct snoop_uct_ep_addr {
   size_t addr_size;
@@ -69,21 +70,32 @@ typedef struct snoop_uct_iface {
   char tl_name[SNOOP_TL_NAME_SIZE];
   snoop_uct_iface_tl_resources_t *tl_device_resources;
   unsigned int tl_device_resources_count;
+  size_t md_rkey_size;
 } snoop_uct_iface_t;
 
+typedef struct snoop_uct_rkey {
+  char *rkey;
+  size_t size;
+  char component_name[16];
+} snoop_uct_rkey_t;
+
+#define SNOOP_COMM_HAS_RKEY(c) ((c)->rkey.size > 0)
+#define SNOOP_COMM_HAS_CONN(c) ((c)->ep.current_addr.addr_size > 0)
 typedef struct snoop_uct_comm {
   /*
   Keep in mind ep is not a pointer, so it will keep it's remote
   address even the remote address changes sometime in the future
   */
   snoop_uct_ep_t ep;
+  snoop_uct_rkey_t rkey;
   char send_func_name[SNOOP_UCT_FUNC_NAME];
   struct timespec time;
   size_t comm_size;
 } snoop_uct_comm_t;
 
-void snoop_uct_iface_open(void *iface, void *md, const char *md_name,
-                          const char *tl_name);
+void snoop_uct_iface_open(void *iface, void *md, size_t md_rkey_size,
+                          const char *md_name, const char *tl_name);
+
 void snoop_uct_iface_add_resource(void *iface, const char *dev_name, int type,
                                   int sysdev);
 void snoop_uct_ep_create_iface(void *ep, void *iface);
@@ -93,10 +105,16 @@ void snoop_uct_ep_connect(void *ep, const char *sender_addr,
                           const char *sender_dev_addr,
                           const char *remote_dev_addr, size_t dev_addr_len);
 
-#define snoop_uct_send_f(ep, size) snoop_uct_send_proxy(ep, size, __func__)
-void snoop_uct_send(void *ep, size_t size, const char *func_name);
+#define snoop_uct_send_f(ep, size, rkey)                                       \
+  snoop_uct_send_proxy(ep, size, rkey, __func__)
+void snoop_uct_send(void *ep, size_t size, unpacked_rkey rkey,
+                    const char *func_name);
+void snoop_uct_send_proxy(void *ep, size_t size, unpacked_rkey rkey,
+                          const char *func_name);
 
-void snoop_uct_send_proxy(void *ep, size_t size, const char *func_name);
+// TODO change to pointer for performance
+void snoop_uct_pack_rkey(snoop_uct_rkey_t rkey);
+void snoop_uct_unpack_rkey(const void *rkey_ptr, unpacked_rkey unpacked);
 
 #define zerostruct(p) memset(&p, 0, sizeof(p))
 
