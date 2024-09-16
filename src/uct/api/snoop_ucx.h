@@ -17,14 +17,14 @@ typedef uint8_t boolean;
 #define SNOOP_CM_NAME_SIZE 16
 #define SNOOP_UCT_FUNC_NAME 32
 
-#define SNOOP_LOG_ZCOPY(rkey, is_success)                                      \
+#define SNOOP_LOG_ZCOPY(rkey, is_success, remote_ptr)                                      \
   do {                                                                         \
     int maxsize, i;                                                            \
     maxsize = 0;                                                               \
     for (i = 0; i < iovcnt; i++) {                                             \
       maxsize += iov[i].count * iov[i].length;                                 \
     }                                                                          \
-    snoop_uct_send_f(ep, maxsize, rkey, is_success);                           \
+    snoop_uct_send_f(ep, maxsize, rkey, is_success, remote_ptr);                           \
   } while (0)
 
 #define SNOOP_STATUS(type, varname, init)                                      \
@@ -113,17 +113,17 @@ void snoop_uct_ep_connect(void *ep, const char *sender_addr,
                           const char *sender_dev_addr,
                           const char *remote_dev_addr, size_t dev_addr_len);
 
-#define snoop_uct_send_f(ep, size, rkey, is_success)                           \
-  snoop_uct_send_proxy(ep, size, rkey, is_success, __func__)
+#define snoop_uct_send_f(ep, size, rkey, is_success, remote_ptr)                           \
+  snoop_uct_send_proxy(ep, size, rkey, is_success, remote_ptr, __func__)
 
 void snoop_uct_send(void *ep, void *iface, size_t size, unpacked_rkey rkey,
                     boolean is_success, const char *func_name);
 void snoop_uct_send_proxy(void *ep, size_t size, unpacked_rkey rkey,
-                          boolean is_success, const char *func_name);
+                          boolean is_success, ucx_ptr remote_ptr, const char *func_name);
 
 // TODO change to pointer for performance
 void snoop_uct_pack_rkey(snoop_uct_rkey_t rkey);
-void snoop_uct_unpack_rkey(const void *rkey_ptr, unpacked_rkey unpacked);
+void snoop_uct_unpack_rkey(snoop_uct_rkey_t rkey, unpacked_rkey unpacked);
 
 void printCharHex(const char *str, size_t maxLength);
 
