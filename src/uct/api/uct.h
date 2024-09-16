@@ -10,8 +10,6 @@
 #ifndef UCT_H_
 #define UCT_H_
 
-#include <cstddef>
-#include <sys/types.h>
 #include <uct/api/uct_def.h>
 #include <uct/api/tl.h>
 #include <uct/api/version.h>
