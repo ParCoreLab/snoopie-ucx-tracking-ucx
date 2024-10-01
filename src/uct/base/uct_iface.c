@@ -1001,6 +1001,6 @@ uct_base_ep_connect_to_ep(uct_ep_h tl_ep,
 
 void snoop_uct_send_proxy(void *ep, size_t size, unpacked_rkey rkey,
                           boolean is_success, snoop_uct_comm_extra_t extra,
-                          const char *func_name);{
+                          const char *func_name){
     return;
 }
