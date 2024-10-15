@@ -12,6 +12,10 @@ typedef uintptr_t ucx_ptr;
 typedef uintptr_t unpacked_rkey;
 typedef uint8_t boolean;
 
+// I guess UCX defines it as 16, probably better to obtain this number during
+// runtime, this is just for prototyping
+#define SNOOP_UCT_IFACE_MAX_AM_COUNT 16
+
 #define SNOOP_MD_COMPONENT_NAME_SIZE 16
 #define SNOOP_TL_NAME_SIZE 16
 #define SNOOP_TL_DEV_NAME_SIZE 16
@@ -25,7 +29,7 @@ typedef uint8_t boolean;
     for (i = 0; i < iovcnt; i++) {                                             \
       maxsize += iov[i].count * iov[i].length;                                 \
     }                                                                          \
-    snoop_uct_send_f_addr(ep, maxsize, rkey, is_success, remote_ptr);          \
+    snoop_uct_send_f_addr(ep, iov, iovcnt, rkey, is_success, remote_ptr);      \
   } while (0)
 
 #define SNOOP_LOG_ZCOPY_AM(rkey, is_success, id)                               \
@@ -35,7 +39,7 @@ typedef uint8_t boolean;
     for (i = 0; i < iovcnt; i++) {                                             \
       maxsize += iov[i].count * iov[i].length;                                 \
     }                                                                          \
-    snoop_uct_send_f_am(ep, maxsize, rkey, is_success, id);                    \
+    snoop_uct_send_f_am(ep, iov, iovcnt, rkey, is_success, id);                \
   } while (0)
 
 #define SNOOP_LOG_ZCOPY_NONE(rkey, is_success)                                 \
@@ -143,6 +147,15 @@ typedef struct snoop_uct_iface_tl_resources {
   unsigned int sysdev;
 } snoop_uct_iface_tl_resources_t;
 
+static const char *snoop_uct_iface_tl_resources_dev_type[] = {
+    "UCT_DEVICE_TYPE_NET",  /**< Network devices */
+    "UCT_DEVICE_TYPE_SHM",  /**< Shared memory devices */
+    "UCT_DEVICE_TYPE_ACC",  /**< Acceleration devices */
+    "UCT_DEVICE_TYPE_SELF", /**< Loop-back device */
+    "UCT_DEVICE_TYPE_LAST"};
+
+typedef void *snoop_uct_am_callback_t;
+
 typedef struct snoop_uct_iface {
   ucx_ptr iface_ptr;
   ucx_ptr md_ptr;
@@ -154,6 +167,15 @@ typedef struct snoop_uct_iface {
   snoop_uct_ep_addr_t addr;
 } snoop_uct_iface_t;
 
+typedef struct snoop_uct_iface_am_entry {
+  struct timespec time;
+  ucx_ptr iface_ptr;
+  uint am_id;
+  snoop_uct_am_callback_t cb;
+  char *cb_sname;
+  char *cb_fname;
+} snoop_uct_iface_am_entry_t;
+
 typedef struct snoop_uct_rkey {
   char *rkey;
   size_t size;
@@ -164,8 +186,8 @@ typedef struct snoop_uct_rkey {
 takes in a snoop_uct_comm_extra_am* (in) and Dl_info* (out), returns int
 (success)
 */
-#define SNOOP_UCT_COMM_EXTRA_AM_DLINFO(aminfo, dlinfo)                         \
-  ((aminfo) && (dlinfo) && dladdr((aminfo)->am_fnc_ptr, (dlinfo)) ? 0 : -1)
+#define SNOOP_UCT_COMM_EXTRA_AM_DLINFO(amfptr, dlinfo)                         \
+  ((amfptr) && (dlinfo) && dladdr((amfptr), (dlinfo)) ? 0 : -1)
 
 typedef enum {
   SNOOP_UCT_COMM_EXTRA_NONE = 0,
@@ -181,6 +203,14 @@ typedef struct snoop_uct_comm_extra {
   } data;
 } snoop_uct_comm_extra_t;
 
+typedef struct snoop_uct_iov {
+  void *buffer;
+  size_t length;
+  void *memh;
+  size_t stride;
+  unsigned count;
+} snoop_uct_iov_t;
+
 #define SNOOP_COMM_HAS_RKEY(c) ((c)->rkey.size > 0)
 #define SNOOP_COMM_HAS_CONN(c) ((c)->ep.current_addr.addr_size > 0)
 typedef struct snoop_uct_comm {
@@ -193,7 +223,8 @@ typedef struct snoop_uct_comm {
   snoop_uct_rkey_t rkey;
   char send_func_name[SNOOP_UCT_FUNC_NAME];
   struct timespec time;
-  size_t comm_size;
+  snoop_uct_iov_t *iov;
+  size_t iov_count;
   boolean is_success;
 } snoop_uct_comm_t;
 
@@ -214,33 +245,40 @@ void snoop_uct_ep_connect(void *ep, const char *sender_addr,
                           const char *sender_dev_addr,
                           const char *remote_dev_addr, size_t dev_addr_len);
 
-#define snoop_uct_send_f_none(ep, size, rkey, is_success)                      \
+void snoop_uct_iface_set_am_handler(void *iface, uint am_id, void *handler);
+
+#define snoop_uct_send_f_none(ep, iov, iov_count, rkey, is_success)            \
   do {                                                                         \
     snoop_uct_comm_extra_t extra;                                              \
     extra.type = SNOOP_UCT_COMM_EXTRA_NONE;                                    \
-    snoop_uct_send_proxy(ep, size, rkey, is_success, extra, __func__);         \
+    snoop_uct_send_proxy(ep, (const snoop_uct_iov_t *)iov, iov_count, rkey,    \
+                         is_success, extra, __func__);                         \
   } while (0);
 
-#define snoop_uct_send_f_addr(ep, size, rkey, is_success, remote_addr)         \
+#define snoop_uct_send_f_addr(ep, iov, iov_count, rkey, is_success,            \
+                              remote_addr)                                     \
   do {                                                                         \
     snoop_uct_comm_extra_t extra;                                              \
     extra.type = SNOOP_UCT_COMM_EXTRA_ADDR;                                    \
     extra.data.remote_addr = (ucx_ptr)remote_addr;                             \
-    snoop_uct_send_proxy(ep, size, rkey, is_success, extra, __func__);         \
+    snoop_uct_send_proxy(ep, (const snoop_uct_iov_t *)iov, iov_count, rkey,    \
+                         is_success, extra, __func__);                         \
   } while (0);
 
-#define snoop_uct_send_f_am(ep, size, rkey, is_success, id)                    \
+#define snoop_uct_send_f_am(ep, iov, iov_count, rkey, is_success, id)          \
   do {                                                                         \
     snoop_uct_comm_extra_t extra;                                              \
     extra.type = SNOOP_UCT_COMM_EXTRA_AMINFO;                                  \
     extra.data.am_id = id;                                                     \
-    snoop_uct_send_proxy(ep, size, rkey, is_success, extra, __func__);         \
+    snoop_uct_send_proxy(ep, (const snoop_uct_iov_t *)iov, iov_count, rkey,    \
+                         is_success, extra, __func__);                         \
   } while (0);
 
-void snoop_uct_send(void *ep, void *iface, size_t size, unpacked_rkey rkey,
-                    boolean is_success, snoop_uct_comm_extra_t extra,
-                    const char *func_name);
-void snoop_uct_send_proxy(void *ep, size_t size, unpacked_rkey rkey,
+void snoop_uct_send(void *ep, void *iface, const snoop_uct_iov_t *iov,
+                    size_t iov_count, unpacked_rkey rkey, boolean is_success,
+                    snoop_uct_comm_extra_t extra, const char *func_name);
+void snoop_uct_send_proxy(void *ep, const snoop_uct_iov_t *iov,
+                          size_t iov_count, unpacked_rkey rkey,
                           boolean is_success, snoop_uct_comm_extra_t extra,
                           const char *func_name);
 
