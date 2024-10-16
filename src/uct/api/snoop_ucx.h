@@ -155,12 +155,7 @@ typedef struct snoop_uct_iface_tl_resources {
   unsigned int sysdev;
 } snoop_uct_iface_tl_resources_t;
 
-static const char *snoop_uct_iface_tl_resources_dev_type[] = {
-    "UCT_DEVICE_TYPE_NET",  /**< Network devices */
-    "UCT_DEVICE_TYPE_SHM",  /**< Shared memory devices */
-    "UCT_DEVICE_TYPE_ACC",  /**< Acceleration devices */
-    "UCT_DEVICE_TYPE_SELF", /**< Loop-back device */
-    "UCT_DEVICE_TYPE_LAST"};
+extern const char *snoop_uct_iface_tl_resources_dev_type[];
 
 typedef void *snoop_uct_am_callback_t;
 
