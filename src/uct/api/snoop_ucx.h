@@ -12,6 +12,10 @@ typedef uintptr_t ucx_ptr;
 typedef uintptr_t unpacked_rkey;
 typedef uint8_t boolean;
 
+// I guess UCX defines it as 16, probably better to obtain this number during
+// runtime, this is just for prototyping
+#define SNOOP_UCT_IFACE_MAX_AM_COUNT 16
+
 #define SNOOP_MD_COMPONENT_NAME_SIZE 16
 #define SNOOP_TL_NAME_SIZE 16
 #define SNOOP_TL_DEV_NAME_SIZE 16
@@ -25,7 +29,7 @@ typedef uint8_t boolean;
     for (i = 0; i < iovcnt; i++) {                                             \
       maxsize += iov[i].count * iov[i].length;                                 \
     }                                                                          \
-    snoop_uct_send_f_addr(ep, maxsize, rkey, is_success, remote_ptr);          \
+    snoop_uct_send_f_addr(ep, maxsize, rkey, iovcnt, remote_ptr, iov, iovcnt); \
   } while (0)
 
 #define SNOOP_LOG_ZCOPY_AM(rkey, is_success, id)                               \
@@ -35,7 +39,7 @@ typedef uint8_t boolean;
     for (i = 0; i < iovcnt; i++) {                                             \
       maxsize += iov[i].count * iov[i].length;                                 \
     }                                                                          \
-    snoop_uct_send_f_am(ep, maxsize, rkey, is_success, id);                    \
+    snoop_uct_send_f_am(ep, maxsize, rkey, is_success, id, iov, iovcnt);       \
   } while (0)
 
 #define SNOOP_LOG_ZCOPY_NONE(rkey, is_success)                                 \
@@ -45,12 +49,20 @@ typedef uint8_t boolean;
     for (i = 0; i < iovcnt; i++) {                                             \
       maxsize += iov[i].count * iov[i].length;                                 \
     }                                                                          \
-    snoop_uct_send_f_none(ep, maxsize, rkey, is_success);                      \
+    snoop_uct_send_f_none(ep, maxsize, rkey, is_success, iov, iovcnt);         \
   } while (0)
 
 #define SNOOP_STATUS(type, varname, init)                                      \
   type varname = init;                                                         \
   varname
+
+typedef struct snoop_uct_iov {
+  void *buffer;
+  size_t length;
+  void *memh;
+  size_t stride;
+  unsigned count;
+} snoop_uct_iov_t;
 
 typedef struct snoop_uct_addr {
   size_t addr_size;
@@ -143,6 +155,15 @@ typedef struct snoop_uct_iface_tl_resources {
   unsigned int sysdev;
 } snoop_uct_iface_tl_resources_t;
 
+static const char *snoop_uct_iface_tl_resources_dev_type[] = {
+    "UCT_DEVICE_TYPE_NET",  /**< Network devices */
+    "UCT_DEVICE_TYPE_SHM",  /**< Shared memory devices */
+    "UCT_DEVICE_TYPE_ACC",  /**< Acceleration devices */
+    "UCT_DEVICE_TYPE_SELF", /**< Loop-back device */
+    "UCT_DEVICE_TYPE_LAST"};
+
+typedef void *snoop_uct_am_callback_t;
+
 typedef struct snoop_uct_iface {
   ucx_ptr iface_ptr;
   ucx_ptr md_ptr;
@@ -154,6 +175,15 @@ typedef struct snoop_uct_iface {
   snoop_uct_ep_addr_t addr;
 } snoop_uct_iface_t;
 
+typedef struct snoop_uct_iface_am_entry {
+  struct timespec time;
+  ucx_ptr iface_ptr;
+  uint am_id;
+  snoop_uct_am_callback_t cb;
+  char *cb_sname;
+  char *cb_fname;
+} snoop_uct_iface_am_entry_t;
+
 typedef struct snoop_uct_rkey {
   char *rkey;
   size_t size;
@@ -164,8 +194,8 @@ typedef struct snoop_uct_rkey {
 takes in a snoop_uct_comm_extra_am* (in) and Dl_info* (out), returns int
 (success)
 */
-#define SNOOP_UCT_COMM_EXTRA_AM_DLINFO(aminfo, dlinfo)                         \
-  ((aminfo) && (dlinfo) && dladdr((aminfo)->am_fnc_ptr, (dlinfo)) ? 0 : -1)
+#define SNOOP_UCT_COMM_EXTRA_AM_DLINFO(amfptr, dlinfo)                         \
+  ((amfptr) && (dlinfo) && dladdr((amfptr), (dlinfo)) ? 0 : -1)
 
 typedef enum {
   SNOOP_UCT_COMM_EXTRA_NONE = 0,
@@ -189,6 +219,7 @@ typedef struct snoop_uct_comm {
   Keep in mind ep is not a pointer, so it will keep it's remote
   address even the remote address changes sometime in the future
   */
+  char *transport_extra_info; // as string
   snoop_uct_ep_t ep;
   snoop_uct_rkey_t rkey;
   char send_func_name[SNOOP_UCT_FUNC_NAME];
@@ -214,43 +245,58 @@ void snoop_uct_ep_connect(void *ep, const char *sender_addr,
                           const char *sender_dev_addr,
                           const char *remote_dev_addr, size_t dev_addr_len);
 
-#define snoop_uct_send_f_none(ep, size, rkey, is_success)                      \
+void snoop_uct_iface_set_am_handler(void *iface, uint am_id, void *handler);
+
+#define snoop_uct_send_f_none(ep, size, rkey, is_success, iov, iovcnt)         \
   do {                                                                         \
     snoop_uct_comm_extra_t extra;                                              \
     extra.type = SNOOP_UCT_COMM_EXTRA_NONE;                                    \
-    snoop_uct_send_proxy(ep, size, rkey, is_success, extra, __func__);         \
+    snoop_uct_send_proxy(ep, size, rkey, is_success, extra, iov, iovcnt,       \
+                         __func__);                                            \
   } while (0);
 
-#define snoop_uct_send_f_addr(ep, size, rkey, is_success, remote_addr)         \
+#define snoop_uct_send_f_addr(ep, size, rkey, is_success, remote_addr, iov,    \
+                              iovcnt)                                          \
   do {                                                                         \
     snoop_uct_comm_extra_t extra;                                              \
     extra.type = SNOOP_UCT_COMM_EXTRA_ADDR;                                    \
     extra.data.remote_addr = (ucx_ptr)remote_addr;                             \
-    snoop_uct_send_proxy(ep, size, rkey, is_success, extra, __func__);         \
+    snoop_uct_send_proxy(ep, size, rkey, is_success, extra, iov, iovcnt,       \
+                         __func__);                                            \
   } while (0);
 
-#define snoop_uct_send_f_am(ep, size, rkey, is_success, id)                    \
+#define snoop_uct_send_f_am(ep, size, rkey, is_success, id, iov, iovcnt)       \
   do {                                                                         \
     snoop_uct_comm_extra_t extra;                                              \
     extra.type = SNOOP_UCT_COMM_EXTRA_AMINFO;                                  \
     extra.data.am_id = id;                                                     \
-    snoop_uct_send_proxy(ep, size, rkey, is_success, extra, __func__);         \
+    snoop_uct_send_proxy(ep, size, rkey, is_success, extra, iov, iovcnt,       \
+                         __func__);                                            \
   } while (0);
 
-void snoop_uct_send(void *ep, void *iface, size_t size, unpacked_rkey rkey,
+void snoop_uct_send(void *ep, void *iface, size_t size, snoop_uct_rkey_t rkey,
                     boolean is_success, snoop_uct_comm_extra_t extra,
-                    const char *func_name);
+                    snoop_uct_iov_t *iov, size_t iovcnt, const char *func_name);
 void snoop_uct_send_proxy(void *ep, size_t size, unpacked_rkey rkey,
                           boolean is_success, snoop_uct_comm_extra_t extra,
+                          const void *iov, size_t iovcnt,
                           const char *func_name);
 
 // TODO change to pointer for performance
 void snoop_uct_pack_rkey(snoop_uct_rkey_t rkey);
-void snoop_uct_unpack_rkey(snoop_uct_rkey_t rkey, unpacked_rkey unpacked);
+void snoop_uct_unpack_rkey(void* rkey, unpacked_rkey unpacked);
+void* snoop_internal_get_packed_rkey(unpacked_rkey unpacked);
 
 void printCharHex(const char *str, size_t maxLength);
 
 #define zerostruct(p) memset(&p, 0, sizeof(p))
+
+// CUDA Support Public Funcs
+#ifdef CUDA_SUPPORT
+int snoop_cuda_get_current_gpu_id();
+#else
+#define snoop_cuda_get_current_gpu_id() -1
+#endif
 
 #ifdef __cplusplus
 }
