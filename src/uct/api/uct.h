@@ -2879,8 +2879,7 @@ UCT_INLINE_API ssize_t uct_ep_put_bcopy(uct_ep_h ep, uct_pack_callback_t pack_cb
                                         void *arg, uint64_t remote_addr,
                                         uct_rkey_t rkey)
 {
-    SNOOP_SETUP_NS();
-    ssize_t send_size = -1;
+    SNOOP_SETUP_SS();
     completion_id = snoop_uct_replace_completion_proxy(NULL, &start_time, 0);
     send_size = ep->iface->ops.ep_put_bcopy(ep, pack_cb, arg, remote_addr, rkey);
     snoop_uct_send_f_addr(ep, send_size, rkey, (send_size > 0 && send_size != ((ssize_t) -1)), remote_addr, NULL, 0, completion_id, start_time);
@@ -3068,8 +3067,7 @@ UCT_INLINE_API ssize_t uct_ep_am_bcopy(uct_ep_h ep, uint8_t id,
                                        uct_pack_callback_t pack_cb, void *arg,
                                        unsigned flags)
 {
-    SNOOP_SETUP_NS();
-    ssize_t send_size = -1;
+    SNOOP_SETUP_SS();
     completion_id = snoop_uct_replace_completion_proxy(NULL, &start_time, 0);
     send_size = ep->iface->ops.ep_am_bcopy(ep, id, pack_cb, arg, flags);
     snoop_uct_send_f_am(ep, send_size, 0, 
@@ -3391,9 +3389,8 @@ UCT_INLINE_API ssize_t uct_ep_tag_eager_bcopy(uct_ep_h ep, uct_tag_t tag,
                                               uct_pack_callback_t pack_cb,
                                               void *arg, unsigned flags)
 {
-        SNOOP_SETUP_NS();
+    SNOOP_SETUP_SS(); 
     completion_id = snoop_uct_replace_completion_proxy(NULL, &start_time, 0);
-    ssize_t send_size = -1;
     send_size = ep->iface->ops.ep_tag_eager_bcopy(ep, tag, imm, pack_cb, arg, flags);
     snoop_uct_send_f_none(ep, send_size, 0, (send_size > 0 && send_size != ((ssize_t) -1)),NULL, 0, completion_id, start_time);
     return send_size;

@@ -55,10 +55,6 @@ typedef uint8_t boolean;
                           completion_id, start_time);                          \
   } while (0)
 
-// #define SNOOP_STATUS(type, varname, init)                                      \
-//   type varname = init;                                                         \
-//   varname
-
 #define SNOOP_SETUP()                                                          \
   ucs_status_t _status = UCS_ERR_LAST;                                         \
   void *start_time = NULL;                                                     \
@@ -67,6 +63,11 @@ typedef uint8_t boolean;
 #define SNOOP_SETUP_NS()                                                       \
   void *start_time = NULL;                                                     \
   int completion_id = -1;
+
+#define SNOOP_SETUP_SS()                                                       \
+  void *start_time = NULL;                                                     \
+  int completion_id = -1;                                                      \
+  ssize_t send_size = -1;
 
 typedef struct snoop_uct_iov {
   void *buffer;
@@ -305,7 +306,8 @@ void snoop_uct_send(void *ep, void *iface, size_t size, snoop_uct_rkey_t rkey,
                     snoop_uct_iov_t *iov, size_t iovcnt, const char *func_name);
 */
 
-int snoop_uct_replace_completion_proxy(void *completion, void **start_time_p, char has_comp);
+int snoop_uct_replace_completion_proxy(void *completion, void **start_time_p,
+                                       char has_comp);
 
 void snoop_uct_send_proxy(void *ep, size_t size, unpacked_rkey rkey,
                           boolean is_success, snoop_uct_comm_extra_t extra,
