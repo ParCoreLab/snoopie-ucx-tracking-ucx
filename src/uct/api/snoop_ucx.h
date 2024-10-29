@@ -29,7 +29,8 @@ typedef uint8_t boolean;
     for (i = 0; i < iovcnt; i++) {                                             \
       maxsize += iov[i].count * iov[i].length;                                 \
     }                                                                          \
-    snoop_uct_send_f_addr(ep, maxsize, rkey, iovcnt, remote_ptr, iov, iovcnt); \
+    snoop_uct_send_f_addr(ep, maxsize, rkey, iovcnt, remote_ptr, iov, iovcnt,  \
+                          completion_id, start_time);                          \
   } while (0)
 
 #define SNOOP_LOG_ZCOPY_AM(rkey, is_success, id)                               \
@@ -39,7 +40,8 @@ typedef uint8_t boolean;
     for (i = 0; i < iovcnt; i++) {                                             \
       maxsize += iov[i].count * iov[i].length;                                 \
     }                                                                          \
-    snoop_uct_send_f_am(ep, maxsize, rkey, is_success, id, iov, iovcnt);       \
+    snoop_uct_send_f_am(ep, maxsize, rkey, is_success, id, iov, iovcnt,        \
+                        completion_id, start_time);                            \
   } while (0)
 
 #define SNOOP_LOG_ZCOPY_NONE(rkey, is_success)                                 \
@@ -49,12 +51,22 @@ typedef uint8_t boolean;
     for (i = 0; i < iovcnt; i++) {                                             \
       maxsize += iov[i].count * iov[i].length;                                 \
     }                                                                          \
-    snoop_uct_send_f_none(ep, maxsize, rkey, is_success, iov, iovcnt);         \
+    snoop_uct_send_f_none(ep, maxsize, rkey, is_success, iov, iovcnt,          \
+                          completion_id, start_time);                          \
   } while (0)
 
-#define SNOOP_STATUS(type, varname, init)                                      \
-  type varname = init;                                                         \
-  varname
+// #define SNOOP_STATUS(type, varname, init)                                      \
+//   type varname = init;                                                         \
+//   varname
+
+#define SNOOP_SETUP()                                                          \
+  ucs_status_t _status = UCS_ERR_LAST;                                         \
+  void *start_time = NULL;                                                     \
+  int completion_id = -1;
+
+#define SNOOP_SETUP_NS()                                                       \
+  void *start_time = NULL;                                                     \
+  int completion_id = -1;
 
 typedef struct snoop_uct_iov {
   void *buffer;
@@ -79,10 +91,10 @@ typedef struct snoop_uct_ep_iface_addr {
   snoop_uct_addr_t dev_addr;
 } snoop_uct_ep_iface_addr_t;
 
-typedef struct _snoop_uct_ep_socket_addr {
-  struct sockaddr *addr; /**< Pointer to socket address */
-  socklen_t addrlen;     /**< Address length */
-} _snoop_uct_ep_socket_addr_t;
+// typedef struct _snoop_uct_ep_socket_addr {
+//   struct sockaddr *addr; /**< Pointer to socket address */
+//   socklen_t addrlen;     /**< Address length */
+// } _snoop_uct_ep_socket_addr_t;
 
 typedef enum snoop_uct_ep_addr_type {
   SNOOP_UCT_EP_ADDR_EP = 1,
@@ -223,6 +235,23 @@ typedef struct snoop_uct_comm {
   boolean is_success;
 } snoop_uct_comm_t;
 
+// COMPLETIONS TRACKING
+
+typedef struct snoop_uct_completion snoop_uct_completion_t;
+
+typedef void (*snoop_completion_callback_t)(snoop_uct_completion_t *);
+
+struct snoop_uct_completion {
+  snoop_completion_callback_t func;
+  int count;
+  char status;
+};
+
+snoop_completion_callback_t snoop_get_completion(int i);
+
+void snoop_on_completion(int i, snoop_uct_completion_t *self);
+
+/*
 void snoop_uct_iface_open(void *iface, void *md, size_t md_rkey_size,
                           const char *md_name, const char *tl_name,
                           snoop_uct_ep_addr_t address);
@@ -241,46 +270,52 @@ void snoop_uct_ep_connect(void *ep, const char *sender_addr,
                           const char *remote_dev_addr, size_t dev_addr_len);
 
 void snoop_uct_iface_set_am_handler(void *iface, uint am_id, void *handler);
-
-#define snoop_uct_send_f_none(ep, size, rkey, is_success, iov, iovcnt)         \
+*/
+#define snoop_uct_send_f_none(ep, size, rkey, is_success, iov, iovcnt,         \
+                              completion_id, start_time)                       \
   do {                                                                         \
     snoop_uct_comm_extra_t extra;                                              \
     extra.type = SNOOP_UCT_COMM_EXTRA_NONE;                                    \
     snoop_uct_send_proxy(ep, size, rkey, is_success, extra, iov, iovcnt,       \
-                         __func__);                                            \
+                         completion_id, start_time, __func__);                 \
   } while (0);
 
 #define snoop_uct_send_f_addr(ep, size, rkey, is_success, remote_addr, iov,    \
-                              iovcnt)                                          \
+                              iovcnt, completion_id, start_time)               \
   do {                                                                         \
     snoop_uct_comm_extra_t extra;                                              \
     extra.type = SNOOP_UCT_COMM_EXTRA_ADDR;                                    \
     extra.data.remote_addr = (ucx_ptr)remote_addr;                             \
     snoop_uct_send_proxy(ep, size, rkey, is_success, extra, iov, iovcnt,       \
-                         __func__);                                            \
+                         completion_id, start_time, __func__);                 \
   } while (0);
 
-#define snoop_uct_send_f_am(ep, size, rkey, is_success, id, iov, iovcnt)       \
+#define snoop_uct_send_f_am(ep, size, rkey, is_success, id, iov, iovcnt,       \
+                            completion_id, start_time)                         \
   do {                                                                         \
     snoop_uct_comm_extra_t extra;                                              \
     extra.type = SNOOP_UCT_COMM_EXTRA_AMINFO;                                  \
     extra.data.am_id = id;                                                     \
     snoop_uct_send_proxy(ep, size, rkey, is_success, extra, iov, iovcnt,       \
-                         __func__);                                            \
+                         completion_id, start_time, __func__);                 \
   } while (0);
-
+/*
 void snoop_uct_send(void *ep, void *iface, size_t size, snoop_uct_rkey_t rkey,
                     boolean is_success, snoop_uct_comm_extra_t extra,
                     snoop_uct_iov_t *iov, size_t iovcnt, const char *func_name);
+*/
+
+int snoop_uct_replace_completion_proxy(void *completion, void **start_time_p, char has_comp);
+
 void snoop_uct_send_proxy(void *ep, size_t size, unpacked_rkey rkey,
                           boolean is_success, snoop_uct_comm_extra_t extra,
-                          const void *iov, size_t iovcnt,
-                          const char *func_name);
+                          const void *iov, size_t iovcnt, int completion_id,
+                          void *start_time, const char *func_name);
 
 // TODO change to pointer for performance
 void snoop_uct_pack_rkey(snoop_uct_rkey_t rkey);
-void snoop_uct_unpack_rkey(void* rkey, unpacked_rkey unpacked);
-void* snoop_internal_get_packed_rkey(unpacked_rkey unpacked);
+void snoop_uct_unpack_rkey(void *rkey, unpacked_rkey unpacked);
+void *snoop_internal_get_packed_rkey(unpacked_rkey unpacked);
 
 void printCharHex(const char *str, size_t maxLength);
 

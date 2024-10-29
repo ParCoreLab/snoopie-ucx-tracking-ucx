@@ -1001,7 +1001,11 @@ uct_base_ep_connect_to_ep(uct_ep_h tl_ep,
 
 void snoop_uct_send_proxy(void *ep, size_t size, unpacked_rkey rkey,
                           boolean is_success, snoop_uct_comm_extra_t extra,
-                          const void *iov, size_t iovcnt,
-                          const char *func_name){
+                          const void *iov, size_t iovcnt, int completion_id,
+                          void *start_time, const char *func_name){
     return;
+}
+
+int snoop_uct_replace_completion_proxy(void *completion, void **start_time_p, char has_comp){
+    return -1;
 }
