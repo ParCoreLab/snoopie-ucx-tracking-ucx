@@ -55,19 +55,24 @@ typedef uint8_t boolean;
                           completion_id, start_time);                          \
   } while (0)
 
-#define SNOOP_SETUP()                                                          \
+typedef struct uct_completion uct_completion_t;
+
+#define SNOOP_SETUP(comp)                                                      \
   ucs_status_t _status = UCS_ERR_LAST;                                         \
   void *start_time = NULL;                                                     \
-  int completion_id = -1;
+  int completion_id = -1;                                                      \
+  uct_completion_t *_comp = comp;
 
-#define SNOOP_SETUP_NS()                                                       \
-  void *start_time = NULL;                                                     \
-  int completion_id = -1;
-
-#define SNOOP_SETUP_SS()                                                       \
+#define SNOOP_SETUP_NS(comp)                                                   \
   void *start_time = NULL;                                                     \
   int completion_id = -1;                                                      \
-  ssize_t send_size = -1;
+  uct_completion_t *_comp = comp;
+
+#define SNOOP_SETUP_SS(comp)                                                   \
+  void *start_time = NULL;                                                     \
+  int completion_id = -1;                                                      \
+  ssize_t send_size = -1;                                                      \
+  uct_completion_t *_comp = comp;
 
 typedef struct snoop_uct_iov {
   void *buffer;
@@ -306,7 +311,7 @@ void snoop_uct_send(void *ep, void *iface, size_t size, snoop_uct_rkey_t rkey,
                     snoop_uct_iov_t *iov, size_t iovcnt, const char *func_name);
 */
 
-int snoop_uct_replace_completion_proxy(void *completion, void **start_time_p,
+int snoop_uct_replace_completion_proxy(uct_completion_t **completion, void **start_time_p,
                                        char has_comp);
 
 void snoop_uct_send_proxy(void *ep, size_t size, unpacked_rkey rkey,
