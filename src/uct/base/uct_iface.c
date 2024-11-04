@@ -1006,6 +1006,6 @@ void snoop_uct_send_proxy(void *ep, size_t size, unpacked_rkey rkey,
     return;
 }
 
-int snoop_uct_replace_completion_proxy(void *completion, void **start_time_p, char has_comp){
+int snoop_uct_replace_completion_proxy(uct_completion_t **completion, void **start_time_p, char has_comp){
     return -1;
 }
