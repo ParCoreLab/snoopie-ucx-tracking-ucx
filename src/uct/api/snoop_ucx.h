@@ -29,7 +29,7 @@ typedef uint8_t boolean;
     for (i = 0; i < iovcnt; i++) {                                             \
       maxsize += iov[i].count * iov[i].length;                                 \
     }                                                                          \
-    snoop_uct_send_f_addr(ep, maxsize, rkey, iovcnt, remote_ptr, iov, iovcnt,  \
+    snoop_uct_send_f_addr(ep, maxsize, rkey, is_success, remote_ptr, iov, iovcnt,  \
                           completion_id, start_time);                          \
   } while (0)
 
@@ -315,7 +315,7 @@ int snoop_uct_replace_completion_proxy(uct_completion_t **completion, void **sta
                                        char has_comp);
 
 void snoop_uct_send_proxy(void *ep, size_t size, unpacked_rkey rkey,
-                          boolean is_success, snoop_uct_comm_extra_t extra,
+                          char is_success, snoop_uct_comm_extra_t extra,
                           const void *iov, size_t iovcnt, int completion_id,
                           void *start_time, const char *func_name);
 
