@@ -315,7 +315,7 @@ int snoop_uct_replace_completion_proxy(uct_completion_t **completion, void **sta
                                        char has_comp);
 
 void snoop_uct_send_proxy(void *ep, size_t size, unpacked_rkey rkey,
-                          char is_success, snoop_uct_comm_extra_t extra,
+                          int32_t is_success, snoop_uct_comm_extra_t extra,
                           const void *iov, size_t iovcnt, int completion_id,
                           void *start_time, const char *func_name);
 
